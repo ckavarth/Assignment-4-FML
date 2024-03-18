@@ -1,0 +1,139 @@
+---
+title: "Assignment-4-FML"
+author: "Chaitanya"
+date: "2024-03-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Summary:This assignment is to use k-Means for clustering.Variable Selection: Only numerical variables (1 to 9) are chosen for clustering.
+#Weights: Equal weights are assigned to each variable to avoid bias towards any particular metric.
+#Clustering Algorithm: K-means clustering is used due to its simplicity and effectiveness in identifying clusters in numerical data.
+#Number of Clusters: The appropriate number of clusters will be determined using methods such as the elbow method or silhouette score which helps identify the point of diminishing returns in within-cluster sum of squares.Clusters are interpreted based on the average values of numerical variables used in forming the clusters.Characteristics such as market capitalization, beta, PE ratio, return on equity, return on assets, asset turnover, leverage, estimated revenue growth, and net profit margin are analyzed for each cluster.Qualitative variables such as median recommendation, location of firm's headquarters, and stock exchange are examined to identify any discernible patterns.Appropriate names are provided for each cluster based on the characteristics observed in the dataset.Cluster names reflect key features such as market capitalization, leverage, profitability, efficiency, etc.Insights from the cluster analysis provide valuable information about the structure and characteristics of the pharmaceutical industry.
+```{r}
+# Load required libraries
+library(cluster)
+library(tidyverse)
+library(factoextra)
+library(ISLR)
+library(ggplot2)  
+
+# Loading the dataset from the pc location:
+pharma_data <- read.csv("C:\\Users\\Chaitu\\Documents\\Data\\Pharmaceuticals.csv")
+# Select only the numerical variables (columns 1 to 9)
+df <- pharma_data[, 3:11]
+head(df,10)
+summary(pharma_data)
+```
+
+```{r}
+# Scale the numerical variables
+df_scale <- scale(df)
+
+# Determine optimal number of clusters using the elbow method
+fviz_nbclust(df_scale,kmeans,method="wss")
+```
+
+
+```{r}
+# Plotting the elbow method using "silhouette"
+fviz_nbclust(df_scale,kmeans,method="silhouette")
+```
+#plotting a Eucledian distance 
+```{r}
+euclidean_dist<-dist(df_scale,metho='euclidean')
+fviz_dist(euclidean_dist)
+```
+
+
+```{r}
+# Based on the plot, we can choose the number of clusters, e.g., 5
+# Perform k-means clustering with the chosen number of clusters
+k <- 5  
+set.seed(123)  
+kmeans_result <- kmeans(df_scale, centers = k)
+
+k5<- kmeans(df, centers = 5, nstart=25 )
+k5$centers  #centroids
+```
+
+```{r}
+# size of cluster
+k5$size
+fviz_cluster(k5,data=df)
+```
+#Analysis of each cluster's characteristics will provide insights into the structure of the pharmaceutical industry based on market capitalization, beta, P/E ratio, ROI, ROA, asset turnover, leverage, and revenue growth.
+```{r}
+# Cluster mean values of numerical variables for each cluster
+cluster_means <- aggregate(. ~ cluster, data = cbind(pharma_data[, 3:11], cluster = kmeans_result$cluster), FUN = mean)
+print(cluster_means)
+
+# Interpret the clusters based on the average values of numerical variables
+for (i in 1:nrow(cluster_means)) {
+  cat("Cluster", i, ":\n")
+  cat("Average Market Capitalization:", cluster_means[i, "Market_Cap"], "\n")
+  cat("Average Beta:", cluster_means[i, "Beta"], "\n")
+  cat("Average PE Ratio:", cluster_means[i, "PE_Ratio"], "\n")
+  cat("Average ROE:", cluster_means[i, "ROE"], "\n")
+  cat("Average ROA:", cluster_means[i, "ROA"], "\n")
+  cat("Average Asset Turnover:", cluster_means[i, "Asset_Turnover"], "\n")
+  cat("Average Leverage:", cluster_means[i, "Leverage"], "\n")
+  cat("Average Estimated Revenue Growth:", cluster_means[i, "Rev_Growth"], "\n")
+  cat("Average Net Profit Margin:", cluster_means[i, "Net_Profit_Margin"], "\n\n")
+}
+```
+
+#Non-numerical variables (10 to 12) will be analyzed across clusters to identify any patterns or trends.The median recommendation, location of the firm’s headquarters, and stock exchange listing might reveal geographical or market-specific trends among clusters.
+```{r}
+# Creating a function to plot bar plots for non-numerical variables by cluster
+plot_non_numerical <- function(variable) {
+  ggplot(pharma_data, aes(x = k5$cluster, fill = variable)) +
+    geom_bar(position = "stack") +
+    labs(x = "cluster", y = "frequency", fill = variable, title = paste("Bar plot of", variable, "by Cluster")) +
+    theme_minimal()
+}
+
+# Plotting bar plots for non-numerical variables (10 to 12)
+plot_non_numerical("Median_Recommendation")
+plot_non_numerical("Location")
+plot_non_numerical("Exchange")
+
+```
+
+#Each cluster can be appropriately named based on the dominant financial and non-financial characteristics observed.Cluster names reflect key features such as market capitalization, leverage, profitability, efficiency, etc.
+```{r}
+# Create a function to generate cluster names based on cluster characteristics
+generate_cluster_names <- function(cluster_means) {
+  cluster_names <- character(nrow(cluster_means))
+  for (i in 1:nrow(cluster_means)) {
+    # Extract relevant variables for cluster naming
+    market_cap <- cluster_means[i, "Market_Cap"]
+    leverage <- cluster_means[i, "Leverage"]
+    roe <- cluster_means[i, "ROE"]
+    rev_growth <- cluster_means[i, "Rev_Growth"]
+
+    # Derive the cluster names based on characteristics
+    if (market_cap > 100 && leverage < 0.5) {
+      cluster_names[i] <- "High Market Cap, Low Leverage"
+    } else if (market_cap < 10 && leverage > 1) {
+      cluster_names[i] <- "Low Market Cap, High Leverage"
+    } else if (roe > 30 && rev_growth > 15) {
+      cluster_names[i] <- "HighROE_HighGrowth"
+    } else {
+      cluster_names[i] <- "General"
+    }
+  }
+  return(cluster_names)
+}
+
+cluster_names <- generate_cluster_names(cluster_means)
+
+# Add cluster names to the cluster_means dataframe
+cluster_means$cluster_name <- cluster_names
+print(cluster_means[, c("cluster", "cluster_name")])
+
+
+```
